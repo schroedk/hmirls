@@ -386,88 +386,27 @@ class SamplingMatrixOperator(MatrixOperator):
 class InverseWeightOperator(MatrixOperator):
     def __init__(
         self,
-        left_singular_vectors: np.ndarray,
-        right_singular_vectors: np.ndarray,
-        singular_values: np.array,
-        schatten_p_parameter,
-        regularization_parameter,
+        left_inverse_weight: np.ndarray,
+        right_inverse_weight: np.ndarray,
         order,
     ):
         """
-        # ToDo add docu
-        :param left_singular_vectors:
-        :param right_singular_vectors:
-        :param singular_values:
-        :param schatten_p_parameter:
-        :param regularization_parameter:
+        Constructs inverse weight operator from one sided inverse weights.
+
+        :param left_inverse_weight:
+        :param right_inverse_weight:
         :param order:
         """
-        assert np.all(np.diff(singular_values) <= 0)
-        shape = (left_singular_vectors.shape[0], right_singular_vectors.shape[0])
-        self.min_non_zero_dim = min(shape)
-        flattened_operator = self._construct_flattened_operator(
-            left_singular_vectors,
-            right_singular_vectors,
-            singular_values,
-            regularization_parameter,
-            schatten_p_parameter,
+        shape = (left_inverse_weight.shape[0], right_inverse_weight.shape[0])
+        weight_matrix = 0.5 * (
+            kron(eye(right_inverse_weight.shape[0]), left_inverse_weight)
+            + kron(right_inverse_weight, eye(left_inverse_weight.shape[0]))
         )
+        flattened_operator = aslinearoperator(weight_matrix)
         super().__init__(
-            aslinearoperator(flattened_operator),
+            flattened_operator,
             shape,
             shape,
-            representing_matrix=flattened_operator,
+            representing_matrix=weight_matrix,
             order=order,
-        )
-
-    def _construct_flattened_operator(
-        self,
-        left_singular_vectors,
-        right_singular_vectors,
-        singular_values,
-        regularization_parameter,
-        schatten_p_parameter,
-    ):
-        regularized_singular_values = self._compute_regularized_singular_values(
-            singular_values, regularization_parameter, schatten_p_parameter
-        )
-        left_inverse_weight = self._construct_inverse_weight(
-            left_singular_vectors, regularized_singular_values, self.min_non_zero_dim
-        )
-        right_inverse_weight = self._construct_inverse_weight(
-            right_singular_vectors, regularized_singular_values, self.min_non_zero_dim
-        )
-        return 0.5 * (
-            kron(eye(right_singular_vectors.shape[0]), left_inverse_weight)
-            + kron(right_inverse_weight, eye(left_singular_vectors.shape[0]))
-        )
-
-    def _construct_inverse_weight(
-        self,
-        singular_vectors: np.ndarray,
-        regularized_singular_values,
-        min_non_zero_dim,
-    ):
-        dimension = singular_vectors.shape[0]
-        diagonal_matrix = self._construct_shifted_diagonal_matrix(
-            dimension, regularized_singular_values, min_non_zero_dim
-        )
-        return singular_vectors @ diagonal_matrix @ singular_vectors.conj().transpose()
-
-    @staticmethod
-    def _construct_shifted_diagonal_matrix(
-        dimension, regularized_singular_values, min_non_zero_dim
-    ):
-        _regularized_singular_values = np.zeros(dimension)
-        _regularized_singular_values[:min_non_zero_dim] = regularized_singular_values
-        _regularized_singular_values[min_non_zero_dim:] = 0
-        return diags(_regularized_singular_values, shape=(dimension, dimension))
-
-    @staticmethod
-    def _compute_regularized_singular_values(
-        singular_values, regularization_parameter, schatten_p_parameter
-    ):
-        return np.power(
-            np.power(singular_values, 2) + regularization_parameter ** 2,
-            (2 - schatten_p_parameter) / 2.0,
         )

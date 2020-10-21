@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Union
+from typing import Union, Tuple
 from scipy.sparse.linalg import (
     LinearOperator as scipyLinearOperator,
     aslinearoperator,
@@ -7,8 +7,8 @@ from scipy.sparse.linalg import (
 import numpy as np
 from scipy.sparse import eye
 from .operators import MatrixOperator, InverseWeightOperator
+from .regularization import RegularizationRule, FixedRankSpectralShiftRegularizationRule
 
-from .svd import SVDEngine, ScipySVDEngine
 from .weighted_least_squares import (
     WeightedLeastSquaresSolver,
     ScipyCgWeightedLeastSquaresSolver,
@@ -42,11 +42,11 @@ class Problem:
         self,
         measurement_operator: Union[scipyLinearOperator, np.ndarray, MatrixOperator],
         data: np.array,
-        rank_estimate: int,
-        indexing_order="F",
-        input_shape=None,
+        indexing_order: MatrixOperator.IndexingOrder = None,
+        input_shape: Tuple[int, int] = None,
     ):
         """
+
 
         :param measurement_operator:
         :param data:
@@ -63,16 +63,16 @@ class Problem:
             measurement_operator = MatrixOperator(
                 measurement_operator, input_shape, data.shape, order=indexing_order
             )
+
         self.data = data
-        self.rank_estimate = rank_estimate
         self.measurement_operator = measurement_operator
 
     def solve(
         self,
         schatten_p_parameter,
         max_iter=1000,
-        eps_min=1e-12,
-        svd_engine: SVDEngine = ScipySVDEngine,
+        rank_estimate: int = None,
+        regularization_rule: RegularizationRule = None,
         weighted_least_squares_solver: WeightedLeastSquaresSolver = ScipyCgWeightedLeastSquaresSolver(
             tol=1e-10
         ),
@@ -80,14 +80,23 @@ class Problem:
     ):
         """
 
-        :param stopping_criteria:
         :param schatten_p_parameter:
         :param max_iter:
-        :param eps_min:
-        :param svd_engine:
+        :param rank_estimate:
+        :param regularization_rule:
         :param weighted_least_squares_solver:
+        :param stopping_criteria:
         :return:
         """
+
+        if regularization_rule is None:
+            if rank_estimate is None:
+                raise ValueError(
+                    f"Provide either a rank estimate or a regularization rule."
+                )
+            regularization_rule = FixedRankSpectralShiftRegularizationRule(
+                rank_estimate
+            )
 
         def _initialize_inverse_weight_matrix_operator():
             """
@@ -105,23 +114,7 @@ class Problem:
                 order=order,
             )
 
-        def _compute_inverse_weight_matrix_operator(
-            left_singular_vectors: np.ndarray,
-            right_singular_vectors: np.ndarray,
-            singular_values: np.array,
-            _regularization_parameter: np.float64,
-        ):
-            return InverseWeightOperator(
-                left_singular_vectors,
-                right_singular_vectors,
-                singular_values,
-                schatten_p_parameter,
-                _regularization_parameter,
-                order=self.measurement_operator.order,
-            )
-
         inverse_weight_matrix_operator = _initialize_inverse_weight_matrix_operator()
-        regularization_parameter = 1.0
         iteration = 0
         old_result = np.random.randn(*self.measurement_operator.input_shape)
         while iteration < max_iter:
@@ -132,12 +125,16 @@ class Problem:
             if stopping_criteria.satisfied(old_result, result):
                 return result
             old_result = result
-            u, s, v = svd_engine.svd(result)
-            regularization_parameter = min(
-                max(s[self.rank_estimate], eps_min), regularization_parameter
+            (
+                left_inverse_weight,
+                right_inverse_weight,
+            ) = regularization_rule.compute_regularized_inverse_weights(
+                result, schatten_p_parameter
             )
-            inverse_weight_matrix_operator = _compute_inverse_weight_matrix_operator(
-                u, v, s, regularization_parameter
+            inverse_weight_matrix_operator = InverseWeightOperator(
+                left_inverse_weight,
+                right_inverse_weight,
+                self.measurement_operator.order,
             )
             iteration += 1
         return result
