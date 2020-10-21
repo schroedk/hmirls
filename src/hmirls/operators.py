@@ -1,8 +1,8 @@
 from enum import Enum
 from typing import Tuple, List, Union, Callable
 import numpy as np
-from scipy.sparse import csr_matrix, kron, diags, eye
-from scipy.sparse.linalg import LinearOperator as scipyLinearOperator, aslinearoperator
+from scipy.sparse import csr_matrix, kron, eye
+from scipy.sparse.linalg import LinearOperator as ScipyLinearOperator, aslinearoperator
 
 
 class MatrixOperatorCompatibility:
@@ -69,11 +69,11 @@ class MatrixOperator:
 
     def __init__(
         self,
-        flattened_operator: Union[scipyLinearOperator, np.ndarray, csr_matrix],
+        flattened_operator: Union[ScipyLinearOperator, np.ndarray, csr_matrix],
         input_shape: Tuple[int, int],
         output_shape: Tuple[int, int],
         representing_matrix: Union[np.ndarray, csr_matrix] = None,
-        order=IndexingOrder.COLUMN_MAJOR.value,
+        order=IndexingOrder,
     ):
         """
         # ToDO More detailed description, doc tests
@@ -154,8 +154,6 @@ class MatrixOperator:
         elif np.isscalar(x):
             return MatrixOperator._from_callable(self, lambda op: x * op)
         else:
-            x = np.asarray(x)
-
             if x.shape == self.input_shape:
                 x_flattened = x.flatten(self.order)
                 return self.flattened_operator(x_flattened).reshape(
@@ -209,8 +207,8 @@ class MatrixOperator:
         cls,
         matrix_operator: "MatrixOperator",
         fcn: Callable[
-            [Union[scipyLinearOperator, np.ndarray]],
-            Union[scipyLinearOperator, np.ndarray],
+            [Union[ScipyLinearOperator, np.ndarray]],
+            Union[ScipyLinearOperator, np.ndarray],
         ],
     ):
         """
@@ -309,14 +307,12 @@ class MatrixOperator:
         )
 
 
-class SamplingOperator(scipyLinearOperator):
+class SamplingOperator(ScipyLinearOperator):
     def __init__(self, indices: List[int], input_dimension: int):
         """
 
         :type input_dimension:
         :type indices: linear indices
-        :param dtype: data type of representing matrix, defaults to double,
-                      e.g. for complex operators choose np.complex_
         """
         super().__init__(dtype=np.float64, shape=(len(indices), input_dimension))
         self._indices = indices
@@ -339,8 +335,6 @@ class SamplingOperator(scipyLinearOperator):
         return x[self.indices]
 
     def _rmatvec(self, x: np.array):
-        # ToDo proper dimension check
-        # ToDO check if toarray can be ommitted
         return csr_matrix(
             (x.flatten(), (self.indices, np.zeros(len(self.indices)))),
             shape=(self.shape[1], 1),

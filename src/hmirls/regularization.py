@@ -56,10 +56,10 @@ class FixedRankSpectralShiftRegularizationRule(RegularizationRule):
         regularized_singular_values = self._compute_regularized_singular_values(
             s, self._shift_parameter, schatten_p_parameter
         )
-        left_inverse_weight = self._construct_inverse_weight(
+        left_inverse_weight = self._construct_one_sided_inverse_weight(
             u, regularized_singular_values, min_non_zero_dim
         )
-        right_inverse_weight = self._construct_inverse_weight(
+        right_inverse_weight = self._construct_one_sided_inverse_weight(
             v, regularized_singular_values, min_non_zero_dim
         )
         self._update_shift_parameter(s)
@@ -67,10 +67,11 @@ class FixedRankSpectralShiftRegularizationRule(RegularizationRule):
 
     def _update_shift_parameter(self, singular_values):
         self._shift_parameter = min(
-            max(singular_values[self.rank_estimate], self._minimal_shift), self._shift_parameter
+            max(singular_values[self.rank_estimate], self._minimal_shift),
+            self._shift_parameter,
         )
 
-    def _construct_inverse_weight(
+    def _construct_one_sided_inverse_weight(
         self,
         singular_vectors: np.ndarray,
         regularized_singular_values,
@@ -99,4 +100,3 @@ class FixedRankSpectralShiftRegularizationRule(RegularizationRule):
             np.power(singular_values, 2) + regularization_parameter ** 2,
             (2 - schatten_p_parameter) / 2.0,
         )
-
