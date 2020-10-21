@@ -7,22 +7,24 @@ from hmirls.svd import ScipySVDEngine, SVDEngine
 
 
 class RegularizationRule(ABC):
-    """
-    Abstraction of two regularization functions ..math::
-        R_1 : \mathbb{C}^{d_1,d_1} \rightarrow \mathbb{C}^{d_1,d_1}
-        R_2 : \mathbb{C}^{d_2,d_2} \rightarrow \mathbb{C}^{d_2,d_2}
-    representing a regularization rule for ..math:: XX^{\star}, X^{\star}X
-    """
 
     @abstractmethod
     def compute_regularized_inverse_weights(
         self, x: np.ndarray, schatten_p_parameter: np.float64
     ):
         """
+        Abstraction of two regularization functions
 
-        :param x: array of shape ..math:: (d_1, d_2)
+        .. math::
+
+            R_1 : \\mathbb{C}^{d_1 \\times d_1} \\rightarrow \\mathbb{C}^{d_1 \\times d_1},
+            R_2 : \\mathbb{C}^{d_2 \\times d_2} \\rightarrow \\mathbb{C}^{d_2 \\times d_2}
+
+        representing a regularization rule for :math:`xx^{\\star}`,resp. :math:`x^{\\star}x`
+
+        :param x: array of shape :math:`(d_1, d_2)`
         :param schatten_p_parameter:
-        :return: tuple ..math:: \left(R_1(XX^{\star})^(\frac{2-p}{2}), R_2(X^{\star}X)^(\frac{2-p}{2}) \right)
+        :return: :math:`\\left(R_1(xx^{\\star})^{\\frac{2-p}{2}}, R_2(x^{\\star}x)^{\\frac{2-p}{2}} \\right)`
         """
         pass
 
