@@ -31,7 +31,7 @@ class FixedRankSpectralShiftRegularizationRule(RegularizationRule):
     def __init__(
         self,
         rank_estimate: int,
-        minimal_shift=1e-12,
+        minimal_shift=1e-6,
         initial_shift_parameter=1.0,
         svd_engine: SVDEngine = ScipySVDEngine,
     ):
