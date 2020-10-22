@@ -3,6 +3,8 @@ import numpy as np
 from hmirls.operators import SamplingMatrixOperator
 from hmirls.problem import Problem
 
+# Simple example
+
 u = np.array([1.0, 10.0, -2.0, 0.1]).reshape((-1, 1))
 v = np.array([1.0, 2.0, 3.0, 4.0]).reshape((-1, 1))
 X = np.matmul(u, v.transpose())
