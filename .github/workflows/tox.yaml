@@ -18,6 +18,8 @@ jobs:
         run: |
           git fetch origin main:main --update-head-ok
           git merge main
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Setup Python 3.8
         uses: actions/setup-python@v1
         with:
