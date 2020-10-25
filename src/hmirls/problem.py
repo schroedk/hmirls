@@ -1,11 +1,10 @@
 from abc import ABC, abstractmethod
 from typing import Union, Tuple
-from scipy.sparse.linalg import (
-    LinearOperator as scipyLinearOperator,
-    aslinearoperator,
-)
+import scipy
 import numpy as np
-from scipy.sparse import eye
+from scipy.sparse import eye, csr_matrix
+from scipy.sparse.linalg import LinearOperator
+
 from .operators import MatrixOperator, InverseWeightOperator
 from .regularization import RegularizationRule, FixedRankSpectralShiftRegularizationRule
 
@@ -16,13 +15,26 @@ from .weighted_least_squares import (
 
 
 class StoppingCriteria(ABC):
+    """
+    Abstract base class for iteration stopping criteria
+    """
     @abstractmethod
-    def satisfied(self, *args, **kwargs) -> bool:
+    def satisfied(self, previous_iterate: np.ndarray, current_iterate: np.ndarray) -> bool:
+        """
+        Specifies if criteria is satisfied.
+        :param current_iterate:
+        :param previous_iterate:
+        :return:
+        """
         pass
 
 
 class ResidualNormStoppingCriteria(StoppingCriteria):
     def __init__(self, tol=1e-9):
+        """
+        Stopping criteria based on the relative residual between two iterations is less than a given tolerance
+        :param tol: tolerance for residual
+        """
         self._tol = tol
 
     @property
@@ -30,6 +42,17 @@ class ResidualNormStoppingCriteria(StoppingCriteria):
         return self._tol
 
     def satisfied(self, previous_iterate: np.ndarray, current_iterate: np.ndarray):
+        """
+        Returns true if
+
+        .. math::
+
+            \\frac{\\|X_{\\text{prev}} - X_{\\text{curr}}\\||_{F}}{\\|X_{\\text{prev}}\\|_{F}} < tol.
+
+        :param previous_iterate: :math:`X_{\\text{prev}`
+        :param current_iterate: :math:`X_{\\text{curr}`
+        :return:
+        """
         return (
             np.linalg.norm(previous_iterate - current_iterate)
             / np.linalg.norm(previous_iterate)
@@ -40,12 +63,17 @@ class ResidualNormStoppingCriteria(StoppingCriteria):
 class Problem:
     def __init__(
         self,
-        measurement_operator: Union[scipyLinearOperator, np.ndarray, MatrixOperator],
+        measurement_operator: Union[LinearOperator, np.ndarray, csr_matrix, MatrixOperator],
         data: np.array,
         indexing_order: MatrixOperator.IndexingOrder = None,
         input_shape: Tuple[int, int] = None,
     ):
         """
+        Description for a rank minimization problem
+
+        .. math::
+
+            \\min_{x \\in \\mathbb{C}^{d_1 \\times d_2}} \\operatorname{rank}(x), \\text{s.t.} \\Phi(x) = y,
 
 
         :param measurement_operator:
@@ -61,7 +89,7 @@ class Problem:
                     f"provide indexing order and input shape"
                 )
             measurement_operator = MatrixOperator(
-                measurement_operator, input_shape, data.shape, order=indexing_order
+                measurement_operator, input_shape, data.shape, indexing_order
             )
 
         self.data = data
@@ -103,11 +131,11 @@ class Problem:
             Initialize inverse weight matrix operator with identity matrix
             :return: MatrixOperator
             """
-            flattened_input_length = np.prod(self.measurement_operator.input_shape)
+            flattened_input_length = np.product(self.measurement_operator.input_shape)
             order = self.measurement_operator.order
             input_shape = self.measurement_operator.input_shape
             return MatrixOperator(
-                aslinearoperator(eye(flattened_input_length)),
+                scipy.sparse.linalg.aslinearoperator(eye(flattened_input_length)),
                 input_shape,
                 input_shape,
                 representing_matrix=eye(flattened_input_length),
