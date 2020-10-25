@@ -7,7 +7,7 @@ This repository contains python code to implement a basic variant of the Harmoni
 > Available online: https://jmlr.org/papers/volume19/17-244/17-244.pdf
 
 ## Version history
-* Version 0.0.1, 10/21/2020
+* Version 0.0.1, 10/25/2020
 
 ## Author
 Kristof Schröder
