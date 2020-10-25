@@ -24,7 +24,7 @@ class RegularizationRule(ABC):
 
         :param x: array of shape :math:`(d_1, d_2)`
         :param schatten_p_parameter:
-        :return: :math:`\\left(R_1(xx^{\\star})^{\\frac{2-p}{2}}, R_2(x^{\\star}x)^{\\frac{2-p}{2}} \\right)`
+        :return: :math:`R_1(xx^{\\star})^{\\frac{2-p}{2}}, R_2(x^{\\star}x)^{\\frac{2-p}{2}}`
         """
         pass
 
@@ -53,6 +53,28 @@ class FixedRankSpectralShiftRegularizationRule(RegularizationRule):
     def compute_regularized_inverse_weights(
         self, x: np.ndarray, schatten_p_parameter: np.float64
     ):
+        """
+        Regularization via spectral shift
+
+        .. math::
+
+            R_1 : \\mathbb{C}^{d_1 \\times d_1} \\rightarrow \\mathbb{C}^{d_1 \\times d_1}, x \\mapsto xx^{\\star}+\\varepsilon^2 \cdot Id_{d_1},
+
+            R_2 : \\mathbb{C}^{d_2 \\times d_2} \\rightarrow \\mathbb{C}^{d_2 \\times d_2}, x \\mapsto x^{\\star}x +\\varepsilon^2 \cdot Id_{d_2}.
+
+        Spectral shift :math:`\\varepsilon` is given by
+
+        .. math::
+
+            \\varepsilon = \\min(\\max(\\sigma_{\\text{rank_estimate}}(x), \\text{minimal_shift}), \\text{shift_parameter}),
+
+        where :math:`\\sigma_{\\text{rank_estimate}}(x)` is the rank_estimate-th singular value of x.
+
+        :param x: array of shape :math:`(d_1, d_2)`
+        :param schatten_p_parameter:
+        :return: :math:`\\left(xx^{\\star}+\\varepsilon \cdot Id_{d_1}\\right)^{\\frac{2-p}{2}}, \\left(x^{\\star}x +\\varepsilon \cdot Id_{d_2}\\right)^{\\frac{2-p}{2}}`
+        """
+
         u, s, v = self._svd_engine.svd(x)
         min_non_zero_dim = min(u.shape[0], v.shape[0])
         regularized_singular_values = self._compute_regularized_singular_values(

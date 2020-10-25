@@ -1,8 +1,8 @@
 from enum import Enum
-from typing import Tuple, List, Union, Callable
+from typing import Tuple, List, Union, Callable, Optional
 import numpy as np
 from scipy.sparse import csr_matrix, kron, eye
-from scipy.sparse.linalg import LinearOperator as ScipyLinearOperator, aslinearoperator
+from scipy.sparse.linalg import LinearOperator, aslinearoperator
 
 
 class MatrixOperatorCompatibility:
@@ -64,26 +64,42 @@ class MatrixOperatorCompatibility:
 
 class MatrixOperator:
     class IndexingOrder(Enum):
+        """
+        Enum for order argument for :func:`numpy.reshape` and :func:`numpy.flatten`
+        """
         ROW_MAJOR = "C"
         COLUMN_MAJOR = "F"
 
     def __init__(
         self,
-        flattened_operator: Union[ScipyLinearOperator, np.ndarray, csr_matrix],
+        flattened_operator: Union[LinearOperator, np.ndarray, csr_matrix],
         input_shape: Tuple[int, int],
         output_shape: Tuple[int, int],
-        representing_matrix: Union[np.ndarray, csr_matrix] = None,
-        order=IndexingOrder,
+        order: IndexingOrder,
+        representing_matrix: Optional[Union[np.ndarray, csr_matrix]] = None,
     ):
         """
-        # ToDO More detailed description, doc tests
-        Takes care on flattening and reshaping.
-        Wraps a scipy linear operator or numpy array.
+        Represents an operator
 
-        :type output_shape:
-        :param flattened_operator:
-        :param input_shape:
-        :param order:
+        .. math::
+
+            \\Phi: \\mathbb{C}^{d_1 \\times d_2} \\rightarrow \\mathbb{C}^{m_1 \\times m_2}.
+
+        Takes care on flattening and reshaping. Wraps a scipy linear operator or numpy array.
+
+        :param flattened_operator: Represents the flattened map
+
+            .. math::
+
+                \\varphi: \\mathbb{C}^{d_1 \\cdot d_2} \\rightarrow \\mathbb{C}^{m_1 \\cdot m_2},
+
+            such that :math:`\\varphi(\\operatorname{vec}(x)) = \\operatorname{vec}(\\Phi(x))`.
+
+        :param input_shape: :math:`(d_1,d_2)`
+        :param output_shape: :math:`(m_1,m_2)`
+        :param order: order for vectorization :math:`\\operatorname{vec}`
+        :param representing_matrix: matrix representation of flattened operator
+
         """
         self._output_shape = output_shape
         self._input_shape = input_shape
@@ -109,8 +125,8 @@ class MatrixOperator:
                     self._flattened_operator + other._flattened_operator,
                     self._input_shape,
                     self._output_shape,
-                    representing_matrix,
                     self._order,
+                    representing_matrix,
                 )
             raise ValueError(f"Operators are not compatible")
         return NotImplemented
@@ -126,11 +142,11 @@ class MatrixOperator:
 
         Parameters
         ----------
-        x : array_like or MatrixOperator or scalar
+        x : array_like of shape :math:`(d_1, d_2)` or MatrixOperator compatible for composition or scalar
 
         Returns
         -------
-        Ax : array or MatrixOperator that represents
+            :math:`\\Phi(x)` : array or MatrixOperator that represents
             the result of applying this linear operator on x.
 
         """
@@ -146,18 +162,18 @@ class MatrixOperator:
                     )
                 return MatrixOperator(
                     self.flattened_operator.dot(x.flattened_operator),
-                    input_shape=x.input_shape,
-                    output_shape=self.output_shape,
-                    representing_matrix=representing_matrix,
-                    order=self.order,
+                    x.input_shape,
+                    self.output_shape,
+                    self.order,
+                    representing_matrix,
                 )
         elif np.isscalar(x):
             return MatrixOperator._from_callable(self, lambda op: x * op)
         else:
             if x.shape == self.input_shape:
-                x_flattened = x.flatten(self.order)
+                x_flattened = x.flatten(order=self.order.value)
                 return self.flattened_operator(x_flattened).reshape(
-                    self.output_shape, order=self.order
+                    self.output_shape, order=self.order.value
                 )
             else:
                 raise ValueError(
@@ -207,8 +223,8 @@ class MatrixOperator:
         cls,
         matrix_operator: "MatrixOperator",
         fcn: Callable[
-            [Union[ScipyLinearOperator, np.ndarray]],
-            Union[ScipyLinearOperator, np.ndarray],
+            [Union[LinearOperator, np.ndarray]],
+            Union[LinearOperator, np.ndarray],
         ],
     ):
         """
@@ -220,13 +236,12 @@ class MatrixOperator:
         representing_matrix = None
         if matrix_operator.representing_matrix is not None:
             representing_matrix = fcn(matrix_operator.representing_matrix)
-        return cls(
-            fcn(matrix_operator.flattened_operator),
-            input_shape=matrix_operator.input_shape,
-            output_shape=matrix_operator.output_shape,
-            representing_matrix=representing_matrix,
-            order=matrix_operator.order,
-        )
+        return cls(fcn(matrix_operator.flattened_operator),
+                   matrix_operator.input_shape,
+                   matrix_operator.output_shape,
+                   matrix_operator.order,
+                   representing_matrix,
+                   )
 
     @property
     def output_shape(self):
@@ -257,7 +272,7 @@ class MatrixOperator:
 
         Returns
         -------
-        A_H : :class:`~MatrixOperator`
+        :math:`\\Phi^{\\star}` : :class:`~MatrixOperator`
             Hermitian adjoint of self.
         """
         return self._adjoint()
@@ -272,7 +287,7 @@ class MatrixOperator:
 
         Returns
         -------
-        A_T : :class:`~MatrixOperator`
+        :math:`\\Phi^{\\star}` : :class:`~MatrixOperator`
              adjoint of self.
         """
 
@@ -284,31 +299,22 @@ class MatrixOperator:
         """Default implementation of _adjoint"""
         representing_matrix = None
         if self.representing_matrix is not None:
-            representing_matrix = self._representing_matrix.H
+            representing_matrix = self._representing_matrix.conjugate().transpose()
         return MatrixOperator(
             self._flattened_operator.H,
             self._output_shape,
             self._input_shape,
-            representing_matrix,
             self.order,
+            representing_matrix,
         )
 
     def _transpose(self):
         """ Default implementation of _transpose"""
-        representing_matrix = None
-        if self.representing_matrix is not None:
-            representing_matrix = self._representing_matrix.T
-        return MatrixOperator(
-            self._flattened_operator.T,
-            self._output_shape,
-            self._input_shape,
-            representing_matrix,
-            self.order,
-        )
+        return MatrixOperator._from_callable(self, lambda op: op.T)
 
 
-class SamplingOperator(ScipyLinearOperator):
-    def __init__(self, indices: List[int], input_dimension: int):
+class SamplingOperator(LinearOperator):
+    def __init__(self, indices: Union[List[int], np.ndarray], input_dimension: int):
         """
 
         :type input_dimension:
@@ -349,11 +355,12 @@ class SamplingOperator(ScipyLinearOperator):
 
     @classmethod
     def from_matrix_indices(
-        cls, row_indices: List[int], column_indices: List[int], shape, order="F"
+        cls, row_indices: List[int], column_indices: List[int], shape: Tuple[int, int],
+            order: MatrixOperator.IndexingOrder = MatrixOperator.IndexingOrder.COLUMN_MAJOR
     ):
         return cls(
-            np.ravel_multi_index((row_indices, column_indices), shape, order=order),
-            input_dimension=np.prod(shape),
+            np.ravel_multi_index((row_indices, column_indices), shape, order=order.value),
+            input_dimension=np.product(shape),
         )
 
 
@@ -363,17 +370,17 @@ class SamplingMatrixOperator(MatrixOperator):
         row_indices: List[int],
         column_indices: List[int],
         shape: Tuple[int, int],
-        order="F",
+        order: MatrixOperator.IndexingOrder = MatrixOperator.IndexingOrder.COLUMN_MAJOR,
     ):
         flattened_operator = SamplingOperator.from_matrix_indices(
             row_indices, column_indices, shape, order
         )
-        super(SamplingMatrixOperator, self).__init__(
+        super().__init__(
             flattened_operator,
             shape,
             (len(row_indices), 1),
-            flattened_operator.sampling_matrix,
             order,
+            flattened_operator.sampling_matrix,
         )
 
 
@@ -401,6 +408,7 @@ class InverseWeightOperator(MatrixOperator):
             flattened_operator,
             shape,
             shape,
-            representing_matrix=weight_matrix,
-            order=order,
+            order,
+            weight_matrix,
+
         )

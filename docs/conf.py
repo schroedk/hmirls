@@ -27,8 +27,19 @@ print(sys.path)
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['sphinx.ext.napoleon', 'sphinx.ext.autodoc', 'sphinx.ext.doctest', 'sphinx.ext.linkcode', 'sphinx_rtd_theme']
+extensions = ['sphinx.ext.napoleon',
+              'sphinx.ext.doctest', 'sphinx.ext.intersphinx','sphinx.ext.linkcode', 'sphinx_rtd_theme', 'sphinx.ext.autodoc', 'sphinx.ext.autodoc.typehints'
+              ]
 
+autodoc_typehints = 'description'
+
+intersphinx_mapping = {
+    'numpy': ('https://numpy.org/doc/stable/', None),
+    'scipy': ('https://docs.scipy.org/doc/scipy/reference', None),
+}
+
+napoleon_use_param = True
+typehints_fully_qualified = True
 
 # adding links to source files
 # see https://www.sphinx-doc.org/en/master/usage/extensions/linkcode.html#module-sphinx.ext.linkcode
@@ -40,7 +51,8 @@ def linkcode_resolve(domain, info):
 
     path, linkExtension = getPathAndLinkExtension(info['module'])
     objectName = info['fullname']
-    if "." in objectName:  # don't add source link to methods within classes (we might want to change that in the future)
+    # don't add source link to methods within classes (we might want to change that in the future)
+    if "." in objectName:
         return None
     lineno = findLineFromObjectName(path, objectName)
 
@@ -67,7 +79,8 @@ def getPathAndLinkExtension(module: str):
         linkExtension = f"src/{filename}/__init__.py"
         return os.path.join(sourcePathPrefix, "__init__.py"), linkExtension
     else:
-        raise Exception(f"{sourcePathPrefix} is neither a module nor a package with init - did you fortet to add an __init__.py?")
+        raise Exception(
+            f"{sourcePathPrefix} is neither a module nor a package with init - did you fortet to add an __init__.py?")
 
 
 def findLineFromObjectName(sourceFile, objectName):
@@ -80,6 +93,7 @@ def findLineFromObjectName(sourceFile, objectName):
         return 0
     else:
         return desiredNode.lineno
+
 
 autodoc_default_options = {
     'exclude-members': 'log, DuplicateColumnNamesException',
