@@ -3,7 +3,15 @@ import numpy as np
 from hmirls.operators import SamplingMatrixOperator
 from hmirls.problem import Problem
 
-# Simple example
+"""
+Simple example for recovering a low-rank matrix via minimization
+
+    .. math::
+
+        \\min_{x \\in \\mathbb{C}^{d_1 \\times d_2}} \\operatorname{rank}(x), \\text{s.t.} \\Phi(x) = y,
+
+
+"""
 
 u = np.array([1.0, 10.0, -2.0, 0.1]).reshape((-1, 1))
 v = np.array([1.0, 2.0, 3.0, 4.0]).reshape((-1, 1))
