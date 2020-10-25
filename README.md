@@ -11,3 +11,6 @@ This repository contains python code to implement a basic variant of the Harmoni
 
 ## Author
 Kristof Schröder
+
+## Documentation
+> https://hmirls.readthedocs.io/en/latest/
