@@ -358,6 +358,9 @@ class SamplingOperator(LinearOperator):
         cls, row_indices: List[int], column_indices: List[int], shape: Tuple[int, int],
             order: MatrixOperator.IndexingOrder = MatrixOperator.IndexingOrder.COLUMN_MAJOR
     ):
+        if len(row_indices) != len(column_indices):
+            raise ValueError("Row and column indices must be of same length")
+
         return cls(
             np.ravel_multi_index((row_indices, column_indices), shape, order=order.value),
             input_dimension=np.product(shape),
@@ -382,6 +385,15 @@ class SamplingMatrixOperator(MatrixOperator):
             order,
             flattened_operator.sampling_matrix,
         )
+
+    @classmethod
+    def from_index_tuples(cls, indices: List[int], shape: Tuple[int, int]):
+        row_indices = []
+        column_indices = []
+        for (row_idx, col_idx) in indices:
+            row_indices.append(row_idx)
+            column_indices.append(col_idx)
+        return cls(row_indices, column_indices, shape)
 
 
 class InverseWeightOperator(MatrixOperator):
