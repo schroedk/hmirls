@@ -1,5 +1,0 @@
-numpy
-scipy
-sphinx
-sphinx-rtd-theme
-autopep8
