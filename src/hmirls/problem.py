@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Union, Tuple
+import logging
 import scipy
 import numpy as np
 from scipy.sparse import eye, csr_matrix
@@ -12,6 +13,8 @@ from .weighted_least_squares import (
     WeightedLeastSquaresSolver,
     ScipyCgWeightedLeastSquaresSolver,
 )
+
+log = logging.getLogger(__name__)
 
 
 class StoppingCriteria(ABC):
@@ -36,6 +39,7 @@ class ResidualNormStoppingCriteria(StoppingCriteria):
         :param tol: tolerance for residual
         """
         self._tol = tol
+        self._log = log.getChild(self.__class__.__name__)
 
     @property
     def tol(self):
@@ -53,10 +57,11 @@ class ResidualNormStoppingCriteria(StoppingCriteria):
         :param current_iterate: :math:`X_{\\text{curr}`
         :return:
         """
+        residual = np.linalg.norm(previous_iterate - current_iterate) / np.linalg.norm(previous_iterate)
+        self._log.info(f"Current {residual=}")
         return (
-            np.linalg.norm(previous_iterate - current_iterate)
-            / np.linalg.norm(previous_iterate)
-            < self.tol
+                residual
+                < self.tol
         )
 
 
@@ -94,6 +99,7 @@ class Problem:
 
         self.data = data
         self.measurement_operator = measurement_operator
+        self._log = log.getChild(self.__class__.__name__)
 
     def solve(
         self,
@@ -145,8 +151,8 @@ class Problem:
         inverse_weight_matrix_operator = _initialize_inverse_weight_matrix_operator()
         iteration = 0
         old_result = np.random.randn(*self.measurement_operator.input_shape)
+        result = None
         while iteration < max_iter:
-            print(iteration)
             result = weighted_least_squares_solver.solve(
                 self.measurement_operator, inverse_weight_matrix_operator, self.data
             )
@@ -164,5 +170,6 @@ class Problem:
                 right_inverse_weight,
                 self.measurement_operator.order,
             )
+            self._log.info(f"Finished {iteration=}")
             iteration += 1
         return result

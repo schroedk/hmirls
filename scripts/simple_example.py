@@ -1,3 +1,5 @@
+import logging
+import sys
 import numpy as np
 
 from hmirls.operators import SamplingMatrixOperator
@@ -30,5 +32,8 @@ problem = Problem(
     measurements,
 )
 
+
 if __name__ == "__main__":
+    logging_format = '%(levelname)-5s %(asctime)-15s %(name)s:%(funcName)s - %(message)s'
+    logging.basicConfig(level=logging.INFO, format=logging_format, stream=sys.stdout)
     X_tilde = problem.solve(schatten_p_parameter=0.1, max_iter=1000, rank_estimate=1)
