@@ -28,7 +28,7 @@ class WeightedLeastSquaresSolver(ABC):
         x = self._solve_linear_equation(combined_operator.flattened_operator, data)
         x = x.reshape(
             operator.output_shape,
-            order=operator.order,
+            order=operator.order.value,
         )
         return (inverse_weight_operator * operator.H)(x)
 
