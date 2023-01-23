@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "hmirls"
-version = "0.0.1"
+version = "0.1.0"
 description = "Library for Schatten-p norm minimization via iteratively reweighted least squares"
 authors = ["Kristof Schroeder <kristof_schroeder@web.de>"]
 license = "MIT License"
