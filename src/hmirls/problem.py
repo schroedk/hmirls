@@ -6,6 +6,7 @@ import numpy as np
 from scipy.sparse import eye, csr_matrix
 from scipy.sparse.linalg import LinearOperator
 
+from .util import StopWatch
 from .operators import MatrixOperator, InverseWeightOperator
 from .regularization import RegularizationRule, FixedRankSpectralShiftRegularizationRule
 
@@ -58,7 +59,7 @@ class ResidualNormStoppingCriteria(StoppingCriteria):
         :return:
         """
         residual = np.linalg.norm(previous_iterate - current_iterate) / np.linalg.norm(previous_iterate)
-        self._log.info(f"Current {residual=}")
+        self._log.info(f"Current {residual=:.6f}")
         return (
                 residual
                 < self.tol
@@ -108,9 +109,9 @@ class Problem:
         rank_estimate: int = None,
         regularization_rule: RegularizationRule = None,
         weighted_least_squares_solver: WeightedLeastSquaresSolver = ScipyCgWeightedLeastSquaresSolver(
-            tol=1e-10
+            tol=1e-5
         ),
-        stopping_criteria: StoppingCriteria = ResidualNormStoppingCriteria(tol=1e-9),
+        stopping_criteria: StoppingCriteria = ResidualNormStoppingCriteria(tol=1e-4),
     ):
         """
 
@@ -153,23 +154,29 @@ class Problem:
         old_result = np.random.randn(*self.measurement_operator.input_shape)
         result = None
         while iteration < max_iter:
-            result = weighted_least_squares_solver.solve(
-                self.measurement_operator, inverse_weight_matrix_operator, self.data
-            )
-            if stopping_criteria.satisfied(old_result, result):
-                return result
-            old_result = result
-            (
-                left_inverse_weight,
-                right_inverse_weight,
-            ) = regularization_rule.compute_regularized_inverse_weights(
-                result, schatten_p_parameter
-            )
-            inverse_weight_matrix_operator = InverseWeightOperator(
-                left_inverse_weight,
-                right_inverse_weight,
-                self.measurement_operator.order,
-            )
-            self._log.info(f"Finished {iteration=}")
+            with StopWatch() as iteration_stop_watch:
+                with StopWatch() as solve_stop_watch:
+                    result = weighted_least_squares_solver.solve(
+                        self.measurement_operator, inverse_weight_matrix_operator, self.data
+                    )
+                self._log.debug(f"Solving weighted least squares took {solve_stop_watch.duration} seconds")
+
+                with StopWatch() as weight_update_stop_watch:
+                    if stopping_criteria.satisfied(old_result, result):
+                        return result
+                    old_result = result
+                    (
+                        left_inverse_weight,
+                        right_inverse_weight,
+                    ) = regularization_rule.compute_regularized_inverse_weights(
+                        result, schatten_p_parameter
+                    )
+                    inverse_weight_matrix_operator = InverseWeightOperator(
+                        left_inverse_weight,
+                        right_inverse_weight,
+                        self.measurement_operator.order,
+                    )
+                self._log.debug(f"Updating weight matrices took {weight_update_stop_watch.duration} seconds")
+            self._log.info(f"Finished {iteration=} in {iteration_stop_watch.duration:.2f} seconds")
             iteration += 1
         return result
