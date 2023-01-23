@@ -60,8 +60,7 @@ class ScipyLsqrWeightedLeastSquareSolver(WeightedLeastSquaresSolver):
 class ScipyDirect(WeightedLeastSquaresSolver):
 
     def _solve_linear_equation(self, operator: MatrixOperator, data: np.ndarray) -> np.ndarray:
-        A = csr_matrix(operator @ eye(*operator.shape))
-        x = spsolve(A, data)
+        x = spsolve(csr_matrix(operator @ np.eye(*operator.shape)), data)
         return x
 
 
