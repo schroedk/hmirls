@@ -1,8 +1,6 @@
 from abc import ABC, abstractmethod
-
 import numpy as np
 from scipy.sparse import diags
-
 from hmirls.svd import ScipySVDEngine, SVDEngine
 
 
@@ -33,7 +31,7 @@ class FixedRankSpectralShiftRegularizationRule(RegularizationRule):
     def __init__(
         self,
         rank_estimate: int,
-        minimal_shift=1e-6,
+        minimal_shift=1e-9,
         initial_shift_parameter=1.0,
         svd_engine: SVDEngine = ScipySVDEngine,
     ):
