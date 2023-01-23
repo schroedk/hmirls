@@ -244,6 +244,10 @@ class MatrixOperator:
                    )
 
     @property
+    def shape(self):
+        return self._input_shape, self._output_shape
+
+    @property
     def output_shape(self):
         return self._output_shape
 
@@ -404,7 +408,7 @@ class InverseWeightOperator(MatrixOperator):
         order,
     ):
         """
-        Constructs inverse weight operator from one sided inverse weights.
+        Constructs inverse weight operator from one-sided inverse weights.
 
         :param left_inverse_weight:
         :param right_inverse_weight:

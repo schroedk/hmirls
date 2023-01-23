@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from typing import Union
 import numpy as np
-from scipy.sparse.linalg import LinearOperator as ScipyLinearOperator, cg
-
+from scipy.sparse.linalg import LinearOperator as ScipyLinearOperator, cg, lsqr, spsolve, minres
+from scipy.sparse import eye, csr_matrix
 from .operators import MatrixOperator
 
 
@@ -48,3 +48,27 @@ class ScipyCgWeightedLeastSquaresSolver(WeightedLeastSquaresSolver):
     ) -> np.ndarray:
         x, _ = cg(operator, data, tol=self._tol)
         return x
+
+
+class ScipyLsqrWeightedLeastSquareSolver(WeightedLeastSquaresSolver):
+
+    def _solve_linear_equation(self, operator: MatrixOperator, data: np.ndarray) -> np.ndarray:
+        x = lsqr(operator, data)
+        return x[0]
+
+
+class ScipyDirect(WeightedLeastSquaresSolver):
+
+    def _solve_linear_equation(self, operator: MatrixOperator, data: np.ndarray) -> np.ndarray:
+        A = csr_matrix(operator @ eye(*operator.shape))
+        x = spsolve(A, data)
+        return x
+
+
+class ScipyMinRes(WeightedLeastSquaresSolver):
+    def __init__(self, tol: float = 1e-5):
+        self._tol = tol
+
+    def _solve_linear_equation(self, operator: MatrixOperator, data: np.ndarray) -> np.ndarray:
+        x = minres(operator, data, tol=self._tol)
+        return x[0]
